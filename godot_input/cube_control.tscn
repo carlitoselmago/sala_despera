@@ -1,0 +1,48 @@
+[gd_scene load_steps=6 format=3 uid="uid://bneh5qv0eys6"]
+
+[ext_resource type="Script" path="res://addons/godOSC/scripts/OSCClient.gd" id="1_8kd62"]
+[ext_resource type="Script" path="res://addons/godOSC/scripts/OSCServer.gd" id="1_nao4r"]
+[ext_resource type="Script" path="res://scripts/osc_control.gd" id="2_fgh62"]
+[ext_resource type="Script" path="res://scripts/giro_control.gd" id="3_blr4p"]
+[ext_resource type="PackedScene" uid="uid://c53wayq6dkkb0" path="res://meshes/suzanne.glb" id="3_bovk7"]
+
+[node name="Node3D" type="Node3D"]
+
+[node name="CONTROLADOR_cojin" type="Node" parent="."]
+
+[node name="OSCServer" type="Node" parent="CONTROLADOR_cojin"]
+script = ExtResource("1_nao4r")
+port = 54321
+
+[node name="sensorinfo" type="RichTextLabel" parent="CONTROLADOR_cojin"]
+offset_left = 39.0
+offset_top = 15.0
+offset_right = 1708.0
+offset_bottom = 333.0
+theme_override_font_sizes/normal_font_size = 41
+text = "."
+tab_size = 5
+
+[node name="sensorcontrol" type="Node" parent="CONTROLADOR_cojin/sensorinfo" node_paths=PackedStringArray("target_server")]
+script = ExtResource("2_fgh62")
+target_server = NodePath("../../OSCServer")
+osc_address = "/control"
+
+[node name="OSCClient" type="Node" parent="CONTROLADOR_cojin"]
+script = ExtResource("1_8kd62")
+ip_address = "localhost"
+port = 54321
+
+[node name="suzanne" parent="CONTROLADOR_cojin/OSCClient" instance=ExtResource("3_bovk7")]
+transform = Transform3D(0.61, 0, 0, 0, 0.61, 0, 0, 0, 0.61, 0, 0, 0)
+
+[node name="controlaparent" type="Node" parent="CONTROLADOR_cojin/OSCClient/suzanne" node_paths=PackedStringArray("target_server")]
+script = ExtResource("3_blr4p")
+target_server = NodePath("../../../OSCServer")
+osc_address = "/coixi"
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3.00129)
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="Camera3D"]
+transform = Transform3D(1, 0, 0, 0, 0.640525, 0.767937, 0, -0.767937, 0.640525, -3.42955, 5.47156, 0)
