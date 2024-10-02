@@ -16,6 +16,31 @@ MPU6050 mpu;
 
 #define INTERRUPT_PIN 2
 #define LED_PIN 13
+
+bool awake=true;
+float lastypr[3]={0.0,0.0,0.0};
+float acomulateddelta=0.0;
+
+//loop speed
+int loopspeed=50;
+
+// difference vals
+float yprsum;
+float lastyprsum;
+float yprdifference;
+
+float acceleration;
+float acomulatedacceleration;
+
+//control vars
+float batteryFraction;
+float cpu_celsius;
+
+//orientation vars
+float yaw;
+float pitch;
+float roll;
+
 bool blinkState = false;
 
 // Wi-Fi credentials
@@ -38,6 +63,9 @@ uint8_t fifoBuffer[64];
 
 // orientation/motion vars
 Quaternion q;
+VectorInt16 aa;         // [x, y, z]            accel sensor measurements
+VectorInt16 aaReal;     // [x, y, z]            gravity-free accel sensor measurements
+VectorInt16 aaWorld; 
 VectorFloat gravity;
 float ypr[3];
 
@@ -137,54 +165,117 @@ void sendOSCMessage(char* oscAddress,float yaw, float pitch, float roll) {
 //const float MAX_BATTERY_VOLTAGE = 4.2; // Max  voltage of a 3.7 battery is 4.2
 
 int loopCounter = 0; // Counter to track the number of loops
-const int loopInterval = 100; // Number of loops to wait
+const int loopInterval = 1000; // Number of loops to wait
 
 void loop() {
-
-    loopCounter++; // Increment the loop counter
-
-    if (loopCounter >= loopInterval) {
-
-      //int rawValue = analogRead(A13);
-      //float voltageLevel = (rawValue / 4095.0) * 2 * 1.1 * 3.3; // calculate voltage level
-      //float batteryFraction = voltageLevel / MAX_BATTERY_VOLTAGE;
-      float batteryFraction=  maxlipo.cellPercent();
-      //Serial.println(batteryFraction*100);
-      //cpu temperature
-      float cpu_celsius = temperatureRead();
-
-       //send temperature and battery charge
-      sendOSCMessage("/control",cpu_celsius,batteryFraction,0);
-      // Reset the counter
-      loopCounter = 0;
-    }
-
     if (!dmpReady) return;
 
-    if (mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) {
+    loopCounter++; // Increment the loop counter
+    if (awake){
+      if (loopCounter >= loopInterval) {
+        
+        batteryFraction=  maxlipo.cellPercent();
+        cpu_celsius = temperatureRead();
+
+        //send temperature and battery charge
+        sendOSCMessage("/control",cpu_celsius,batteryFraction,0);
+        // Reset the counter
+        loopCounter = 0;
+
+        /*
+        //check for acomulateddelta
+        Serial.print("acomulateddelta: ");
+        Serial.println(acomulateddelta);
+        if (acomulateddelta<30.0){
+          //activate sleep mode
+          awake=false;
+          //loopspeed=500;
+          Serial.println("SLEEP MODE ACTIVATED:::::::::::::::::::::::::::::::::::::");
+        }
+        acomulateddelta=0.0;
+        */
+
+        //check for acomulated acceleration
+
+ 
+        Serial.print("acomulated acceleration: ");
+        Serial.println(acomulatedacceleration);
+        if (acomulatedacceleration<10000.0){
+          //activate sleep mode
+          awake=false;
+          loopspeed=2000;
+          Serial.println("SLEEP MODE ACTIVATED:::::::::::::::::::::::::::::::::::::");
+        }
+        acomulatedacceleration=0.0;
+      }
+    }
+
+   
+
+  if (mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) {
+
+      /*
+     
+          yprdifference = 0.0;
+          
+          for (int i = 0; i < 3; i++) {
+              yprdifference += abs(ypr[i] - lastypr[i]);
+          }
+
+          acomulateddelta += yprdifference;
+
+          if (!awake) {
+              // wakeup check with slower loop
+              //Serial.println(acomulateddelta);
+          }
+      
+      */
+      //acceleration readings
+      acceleration=accvalue();
+      acomulatedacceleration+=acceleration; 
+
+      if (awake){
+        // orientation Readings
         mpu.dmpGetQuaternion(&q, fifoBuffer);
         mpu.dmpGetGravity(&gravity, &q);
         mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
 
-        float yaw = ypr[0] * 180 / M_PI;
-        float pitch = ypr[1] * 180 / M_PI;
-        float roll = ypr[2] * 180 / M_PI;
+        yaw = ypr[0] * 180 / M_PI;
+        pitch = ypr[1] * 180 / M_PI;
+        roll = ypr[2] * 180 / M_PI;
 
-        // Send the Yaw, Pitch, Roll data via OSC
-        sendOSCMessage("/coixi",yaw, pitch, roll);
+        if (awake) {
+            sendOSCMessage("/coixi", yaw, pitch, roll);
+        }
+      } else {
+        //sleeping
+        Serial.print("acceleration: ");
+        Serial.println(acceleration);
+      }
+      // Update lastypr[] AFTER calculating the difference
+      //Serial.println(ypr[0]);
+      /*
+      lastypr[0] = ypr[0];
+      lastypr[1] = ypr[1];
+      lastypr[2] = ypr[2];
+      */
+  }
+     delay(loopspeed);
+}
 
-       
-        /*
-        Serial.print("ypr\t");
-        Serial.print(yaw);
-        Serial.print("\t");
-        Serial.print(pitch);
-        Serial.print("\t");
-        Serial.println(roll);
-
-        blinkState = !blinkState;
-        digitalWrite(LED_PIN, blinkState);
-        */
-    }
-     delay(50);
+float accvalue(){
+       //accelerometer readings
+      mpu.dmpGetQuaternion(&q, fifoBuffer);
+      mpu.dmpGetAccel(&aa, fifoBuffer);
+      mpu.dmpGetGravity(&gravity, &q);
+      mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
+      /*
+      Serial.print("areal\t");
+      Serial.print(aaReal.x);
+      Serial.print("\t");
+      Serial.print(aaReal.y);
+      Serial.print("\t");
+      Serial.println(aaReal.z);
+      */
+      return abs(aaReal.x)+abs(aaReal.y);
 }
