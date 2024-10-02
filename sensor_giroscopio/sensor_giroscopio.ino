@@ -23,6 +23,7 @@ float acomulateddelta=0.0;
 
 //loop speed
 int loopspeed=50;
+int originalloopspeed=loopspeed;
 
 // difference vals
 float yprsum;
@@ -90,6 +91,7 @@ void connectToWiFi() {
     Serial.println("WiFi connected");
     Serial.println("IP address: ");
     Serial.println(WiFi.localIP());
+
 }
 
 void setup() {
@@ -160,6 +162,23 @@ void sendOSCMessage(char* oscAddress,float yaw, float pitch, float roll) {
     msg.empty();  // empty the message to free up memory
 }
 
+float accvalue(){
+       //accelerometer readings
+      mpu.dmpGetQuaternion(&q, fifoBuffer);
+      mpu.dmpGetAccel(&aa, fifoBuffer);
+      mpu.dmpGetGravity(&gravity, &q);
+      mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
+      /*
+      Serial.print("areal\t");
+      Serial.print(aaReal.x);
+      Serial.print("\t");
+      Serial.print(aaReal.y);
+      Serial.print("\t");
+      Serial.println(aaReal.z);
+      */
+      return abs(aaReal.x)+abs(aaReal.y);
+}
+
 // battery vars
 //const int MAX_ANALOG_VAL = 4095;
 //const float MAX_BATTERY_VOLTAGE = 4.2; // Max  voltage of a 3.7 battery is 4.2
@@ -182,29 +201,17 @@ void loop() {
         // Reset the counter
         loopCounter = 0;
 
-        /*
-        //check for acomulateddelta
-        Serial.print("acomulateddelta: ");
-        Serial.println(acomulateddelta);
-        if (acomulateddelta<30.0){
-          //activate sleep mode
-          awake=false;
-          //loopspeed=500;
-          Serial.println("SLEEP MODE ACTIVATED:::::::::::::::::::::::::::::::::::::");
-        }
-        acomulateddelta=0.0;
-        */
-
+       
         //check for acomulated acceleration
-
- 
         Serial.print("acomulated acceleration: ");
         Serial.println(acomulatedacceleration);
         if (acomulatedacceleration<10000.0){
           //activate sleep mode
+          WiFi.disconnect();
           awake=false;
           loopspeed=2000;
           Serial.println("SLEEP MODE ACTIVATED:::::::::::::::::::::::::::::::::::::");
+          
         }
         acomulatedacceleration=0.0;
       }
@@ -214,22 +221,6 @@ void loop() {
 
   if (mpu.dmpGetCurrentFIFOPacket(fifoBuffer)) {
 
-      /*
-     
-          yprdifference = 0.0;
-          
-          for (int i = 0; i < 3; i++) {
-              yprdifference += abs(ypr[i] - lastypr[i]);
-          }
-
-          acomulateddelta += yprdifference;
-
-          if (!awake) {
-              // wakeup check with slower loop
-              //Serial.println(acomulateddelta);
-          }
-      
-      */
       //acceleration readings
       acceleration=accvalue();
       acomulatedacceleration+=acceleration; 
@@ -244,38 +235,26 @@ void loop() {
         pitch = ypr[1] * 180 / M_PI;
         roll = ypr[2] * 180 / M_PI;
 
-        if (awake) {
-            sendOSCMessage("/coixi", yaw, pitch, roll);
-        }
+        
+        sendOSCMessage("/coixi", yaw, pitch, roll);
+        sendOSCMessage("/awake", 1.0,1.0,1.0);
       } else {
         //sleeping
         Serial.print("acceleration: ");
         Serial.println(acceleration);
+        if (acceleration>300){
+          //wake up!
+          
+          connectToWiFi();
+          awake=true;
+          loopspeed=originalloopspeed;
+          Serial.println("WAKE UP!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        }
+        sendOSCMessage("/awake", 2.0,2.0,2.0);
       }
-      // Update lastypr[] AFTER calculating the difference
-      //Serial.println(ypr[0]);
-      /*
-      lastypr[0] = ypr[0];
-      lastypr[1] = ypr[1];
-      lastypr[2] = ypr[2];
-      */
+   
   }
      delay(loopspeed);
 }
 
-float accvalue(){
-       //accelerometer readings
-      mpu.dmpGetQuaternion(&q, fifoBuffer);
-      mpu.dmpGetAccel(&aa, fifoBuffer);
-      mpu.dmpGetGravity(&gravity, &q);
-      mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
-      /*
-      Serial.print("areal\t");
-      Serial.print(aaReal.x);
-      Serial.print("\t");
-      Serial.print(aaReal.y);
-      Serial.print("\t");
-      Serial.println(aaReal.z);
-      */
-      return abs(aaReal.x)+abs(aaReal.y);
-}
+
