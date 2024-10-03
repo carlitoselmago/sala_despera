@@ -33,6 +33,11 @@ float yprdifference;
 float acceleration;
 float acomulatedacceleration;
 
+float yaw_adjusted;
+float pitch_adjusted;
+float roll_adjusted;
+
+
 //control vars
 float batteryFraction;
 float cpu_celsius;
@@ -96,8 +101,6 @@ void connectToWiFi() {
 
 void setup() {
 
-
-
     #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
         Wire.begin();
         Wire.setClock(400000);
@@ -129,7 +132,9 @@ void setup() {
     }
 
     Serial.println(F("Initializing DMP..."));
-    devStatus = mpu.dmpInitialize();
+    //calibrate sensor
+    //calibratesensor();
+     devStatus = mpu.dmpInitialize();
 
     mpu.setXGyroOffset(11);
     mpu.setYGyroOffset(-51);
@@ -150,12 +155,13 @@ void setup() {
         Serial.println(F(")"));
     }
 
+
     pinMode(LED_PIN, OUTPUT);
 }
 
-void sendOSCMessage(char* oscAddress,float yaw, float pitch, float roll) {
+void sendOSCMessage(char* oscAddress,float yaw, float pitch, float roll,float status) {
     OSCMessage msg(oscAddress);
-    msg.add(yaw).add(pitch).add(roll);
+    msg.add(yaw).add(pitch).add(roll).add(status);
     Udp.beginPacket(outIp, outPort);
     msg.send(Udp);  // send the OSC message
     Udp.endPacket();
@@ -179,6 +185,7 @@ float accvalue(){
       return abs(aaReal.x)+abs(aaReal.y);
 }
 
+
 // battery vars
 //const int MAX_ANALOG_VAL = 4095;
 //const float MAX_BATTERY_VOLTAGE = 4.2; // Max  voltage of a 3.7 battery is 4.2
@@ -193,11 +200,13 @@ void loop() {
     if (awake){
       if (loopCounter >= loopInterval) {
         
+        //send battery level
         batteryFraction=  maxlipo.cellPercent();
         cpu_celsius = temperatureRead();
 
         //send temperature and battery charge
-        sendOSCMessage("/control",cpu_celsius,batteryFraction,0);
+        sendOSCMessage("/control",cpu_celsius,batteryFraction,0,float(awake));
+
         // Reset the counter
         loopCounter = 0;
 
@@ -207,11 +216,17 @@ void loop() {
         Serial.println(acomulatedacceleration);
         if (acomulatedacceleration<10000.0){
           //activate sleep mode
-          WiFi.disconnect();
+          
           awake=false;
           loopspeed=2000;
+
+          yaw_adjusted=yaw;
+          pitch_adjusted=pitch;
+          roll_adjusted=roll;
+          //sendOSCMessage("/control",cpu_celsius,batteryFraction,0,0.0);
           Serial.println("SLEEP MODE ACTIVATED:::::::::::::::::::::::::::::::::::::");
-          
+          sendOSCMessage("/coixi", yaw, pitch, roll,0.0);
+          WiFi.disconnect();
         }
         acomulatedacceleration=0.0;
       }
@@ -231,13 +246,13 @@ void loop() {
         mpu.dmpGetGravity(&gravity, &q);
         mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
 
-        yaw = ypr[0] * 180 / M_PI;
-        pitch = ypr[1] * 180 / M_PI;
-        roll = ypr[2] * 180 / M_PI;
+        yaw = (ypr[0] * 180 / M_PI)-yaw_adjusted;
+        pitch = (ypr[1] * 180 / M_PI)-pitch_adjusted;
+        roll = (ypr[2] * 180 / M_PI)-roll_adjusted;
 
         
-        sendOSCMessage("/coixi", yaw, pitch, roll);
-        sendOSCMessage("/awake", 1.0,1.0,1.0);
+        sendOSCMessage("/coixi", yaw, pitch, roll,float(awake));
+        //sendOSCMessage("/awake", 1.0,1.0,1.0);
       } else {
         //sleeping
         Serial.print("acceleration: ");
@@ -249,10 +264,14 @@ void loop() {
           awake=true;
           loopspeed=originalloopspeed;
           Serial.println("WAKE UP!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        }
-        sendOSCMessage("/awake", 2.0,2.0,2.0);
+          //calibratesensor();
+          
+          //recalibrate sensor
+          //Serial.println("recalibrating sensor:::::");
+
+        //sendOSCMessage("/awake", 2.0,2.0,2.0);
       }
-   
+      }
   }
      delay(loopspeed);
 }
