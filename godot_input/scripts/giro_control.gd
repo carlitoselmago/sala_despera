@@ -13,15 +13,7 @@ var accumulated_change = 0.0  # To track total accumulated change
 var sleep_timer = null
 
 func _ready():
-	# Create and configure the timer
-	sleep_timer = Timer.new()
-	sleep_timer.set_wait_time(accumulation_time)
-	sleep_timer.set_one_shot(false)
-	add_child(sleep_timer)
-	sleep_timer.start()
-
-	# Use Callable to connect the timer's timeout signal
-	sleep_timer.connect("timeout", Callable(self, "_on_timer_timeout"))
+	pass
 
 func _process(delta):
 	if target_server.incoming_messages.has(osc_address):
@@ -29,7 +21,11 @@ func _process(delta):
 		var x = target_server.incoming_messages[osc_address][0]
 		var y = target_server.incoming_messages[osc_address][1]
 		var z = target_server.incoming_messages[osc_address][2]
-
+		var status=target_server.incoming_messages[osc_address][3]
+		#print("status ",status)
+		var sleepind=get_node("../../../sleepindicator");
+		sleepind.set_mode(status);
+		#sleepind._draw(status);
 		# Apply the rotation to the parent
 		parent.rotation_degrees = Vector3(y, x * -1, z * -1)
 		
@@ -47,16 +43,7 @@ func _process(delta):
 		lasty = y
 		lastz = z
 
-# Function that runs when the timer finishes
-func _on_timer_timeout():
-	if accumulated_change >= move_threshold:
-		print("awake")
-	else:
-		print("sleep")
-	
-	# Reset the accumulated change for the next period
-	accumulated_change = 0.0
-		
+
 		
 #TODO: muestra de datos guardados para no necesitar el sensor
 

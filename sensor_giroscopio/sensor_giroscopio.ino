@@ -214,7 +214,7 @@ void loop() {
         //check for acomulated acceleration
         Serial.print("acomulated acceleration: ");
         Serial.println(acomulatedacceleration);
-        if (acomulatedacceleration<10000.0){
+        if (acomulatedacceleration<53000.0){
           //activate sleep mode
           
           awake=false;

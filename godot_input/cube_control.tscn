@@ -1,10 +1,12 @@
-[gd_scene load_steps=6 format=3 uid="uid://bneh5qv0eys6"]
+[gd_scene load_steps=8 format=3 uid="uid://bneh5qv0eys6"]
 
 [ext_resource type="Script" path="res://addons/godOSC/scripts/OSCClient.gd" id="1_8kd62"]
 [ext_resource type="Script" path="res://addons/godOSC/scripts/OSCServer.gd" id="1_nao4r"]
+[ext_resource type="Script" path="res://scripts/sleepinterface.gd" id="2_cpgta"]
 [ext_resource type="Script" path="res://scripts/osc_control.gd" id="2_fgh62"]
 [ext_resource type="Script" path="res://scripts/giro_control.gd" id="3_blr4p"]
 [ext_resource type="PackedScene" uid="uid://c53wayq6dkkb0" path="res://meshes/suzanne.glb" id="3_bovk7"]
+[ext_resource type="Script" path="res://scripts/fakeosc_player.gd" id="7_7kxls"]
 
 [node name="Node3D" type="Node3D"]
 
@@ -13,6 +15,10 @@
 [node name="OSCServer" type="Node" parent="CONTROLADOR_cojin"]
 script = ExtResource("1_nao4r")
 port = 54321
+
+[node name="sleepindicator" type="Node2D" parent="CONTROLADOR_cojin"]
+position = Vector2(39, 15)
+script = ExtResource("2_cpgta")
 
 [node name="sensorinfo" type="RichTextLabel" parent="CONTROLADOR_cojin"]
 offset_left = 39.0
@@ -40,6 +46,10 @@ transform = Transform3D(0.61, 0, 0, 0, 0.61, 0, 0, 0, 0.61, 0, 0, 0)
 script = ExtResource("3_blr4p")
 target_server = NodePath("../../../OSCServer")
 osc_address = "/coixi"
+
+[node name="playfakeOSC" type="Node" parent="CONTROLADOR_cojin" node_paths=PackedStringArray("target_client")]
+script = ExtResource("7_7kxls")
+target_client = NodePath("../OSCClient")
 
 [node name="Camera3D" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3.00129)
