@@ -18,8 +18,12 @@ MPU6050 mpu;
 #define LED_PIN 13
 
 bool awake=true;
+bool softsleep=false;
 float lastypr[3]={0.0,0.0,0.0};
-float acomulateddelta=0.0;
+float deltathreshold=100;
+float acomulateddelta=deltathreshold;
+float deltadiscountrate=2;
+float delta=0.0;
 
 //loop speed
 int loopspeed=50;
@@ -99,6 +103,12 @@ void connectToWiFi() {
 
 }
 
+void blink(){
+   // blink LED to indicate activity
+    blinkState = !blinkState;
+    digitalWrite(LED_PIN, blinkState);
+}
+
 void setup() {
 
     #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
@@ -107,8 +117,10 @@ void setup() {
     #endif
 
     Serial.begin(115200);
-    while (!Serial);
-
+    //while (!Serial);
+    unsigned long start = millis();
+    //while (!Serial && millis() - start < 5000); // Timeout after 5 seconds
+    
      // battery reader
     while (!maxlipo.begin()) {
     Serial.println(F("Couldnt find Adafruit MAX17048?\nMake sure a battery is plugged in!"));
@@ -117,7 +129,8 @@ void setup() {
     Serial.print(F("Found MAX17048"));
     Serial.print(F(" with Chip ID: 0x")); 
     Serial.println(maxlipo.getChipID(), HEX);
-
+    
+    
     // Connect to Wi-Fi
     connectToWiFi();
 
@@ -157,6 +170,8 @@ void setup() {
 
 
     pinMode(LED_PIN, OUTPUT);
+
+    //blink();
 }
 
 void sendOSCMessage(char* oscAddress,float yaw, float pitch, float roll,float status) {
@@ -186,9 +201,6 @@ float accvalue(){
 }
 
 
-// battery vars
-//const int MAX_ANALOG_VAL = 4095;
-//const float MAX_BATTERY_VOLTAGE = 4.2; // Max  voltage of a 3.7 battery is 4.2
 
 int loopCounter = 0; // Counter to track the number of loops
 const int loopInterval = 1000; // Number of loops to wait
@@ -212,23 +224,31 @@ void loop() {
 
        
         //check for acomulated acceleration
-        Serial.print("acomulated acceleration: ");
-        Serial.println(acomulatedacceleration);
+        //Serial.print("acomulated acceleration: ");
+        //Serial.println(acomulatedacceleration);
+
+        //hard sleep mode
         if (acomulatedacceleration<53000.0){
           //activate sleep mode
-          
           awake=false;
           loopspeed=2000;
 
           yaw_adjusted=yaw;
           pitch_adjusted=pitch;
           roll_adjusted=roll;
-          //sendOSCMessage("/control",cpu_celsius,batteryFraction,0,0.0);
+        
           Serial.println("SLEEP MODE ACTIVATED:::::::::::::::::::::::::::::::::::::");
-          sendOSCMessage("/coixi", yaw, pitch, roll,0.0);
+          sendOSCMessage("/coixi", 0.0,0.0, 0.0,0.0);
           WiFi.disconnect();
         }
+
+    
         acomulatedacceleration=0.0;
+      }
+     
+      //soft sleep control
+      if (1==1){
+        //softsleep=true;
       }
     }
 
@@ -249,17 +269,43 @@ void loop() {
         yaw = (ypr[0] * 180 / M_PI)-yaw_adjusted;
         pitch = (ypr[1] * 180 / M_PI)-pitch_adjusted;
         roll = (ypr[2] * 180 / M_PI)-roll_adjusted;
+        if (softsleep==false){
+          //delta difference
+          delta=( abs(yaw-lastypr[0]) + abs(pitch-lastypr[1]) + abs(roll-lastypr[2]) );
+          //Serial.print("delta: ");
+          //Serial.println(delta);
+          acomulateddelta+=delta;
+          acomulateddelta-=deltadiscountrate;
+          if (acomulateddelta>deltathreshold){acomulateddelta=deltathreshold;}
+          //Serial.print("acomulateddelta: ");
+          //Serial.println(acomulateddelta);
+          if (acomulateddelta<0){
+            Serial.println("SOFT SLEEP ACTIVATED:::");
+            softsleep=true;
+            yaw_adjusted=yaw;
+            pitch_adjusted=pitch;
+            roll_adjusted=roll;
+            sendOSCMessage("/coixi", 0.0,0.0, 0.0,2.0);
+            acomulateddelta=deltathreshold;
+          }
+       
+          lastypr[0]=yaw;
+          lastypr[1]=pitch;
+          lastypr[2]=roll;
+        }
+        if (!softsleep){
+          sendOSCMessage("/coixi", yaw, pitch, roll,float(awake));
+        } else {
+          //Serial.print("acceleration");
+          //Serial.println(acceleration);
+          if (acceleration>300){
+            softsleep=false;
+          }
+        }
 
-        
-        sendOSCMessage("/coixi", yaw, pitch, roll,float(awake));
-        //sendOSCMessage("/awake", 1.0,1.0,1.0);
       } else {
         //sleeping
-        Serial.print("acceleration: ");
-        Serial.println(acceleration);
-        if (acceleration>300){
-          //wake up!
-          
+         
           connectToWiFi();
           awake=true;
           loopspeed=originalloopspeed;
@@ -267,13 +313,18 @@ void loop() {
           //calibratesensor();
           
           //recalibrate sensor
-          //Serial.println("recalibrating sensor:::::");
+          //Serial.println("reca
+        Serial.print("acceleration: ");
+        Serial.println(acceleration);
+        if (acceleration>300){
+          //wake up!librating sensor:::::");
 
-        //sendOSCMessage("/awake", 2.0,2.0,2.0);
+    
       }
       }
   }
      delay(loopspeed);
+     //blink();
 }
 
 

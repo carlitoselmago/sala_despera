@@ -19,10 +19,16 @@ func _draw():
 		#active
 		#print("mode ",bool(mode))
 		#print("on")
-		draw_circle(cen,rad,Color(0,1,0));
-		#queue_redraw();
+		if (mode>1):
+			#softsleep
+			draw_circle(cen,rad,Color(1,0.5,0));
+		else:
+			#awake
+			draw_circle(cen,rad,Color(0,1,0));
+	
 	else:
+		#hard sleep
 		#print("off")
 		draw_circle(cen,rad,Color(1,0,0));
-		#queue_redraw();
+
 	
