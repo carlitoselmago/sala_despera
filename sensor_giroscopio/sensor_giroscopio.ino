@@ -53,6 +53,11 @@ float roll;
 
 bool blinkState = false;
 
+//raw accelerometer / gyro vars
+int16_t ax, ay, az;
+int16_t gx, gy, gz;
+
+
 // Wi-Fi credentials
 const char *ssid = "MANGO";
 const char *password = "remotamente";
@@ -185,10 +190,23 @@ void sendOSCMessage(char* oscAddress,float yaw, float pitch, float roll,float st
 
 float accvalue(){
        //accelerometer readings
+       //computed ones
+      
+      /*
       mpu.dmpGetQuaternion(&q, fifoBuffer);
       mpu.dmpGetAccel(&aa, fifoBuffer);
       mpu.dmpGetGravity(&gravity, &q);
       mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
+      */
+      //simpler raw ones
+      //mpu.getAcceleration(&ax, &ay, &az);
+      mpu.getRotation(&gx, &gy, &gz);
+
+      //Serial.print("gyroraw:\t");
+      //Serial.print(gx); Serial.print("\t");
+      //Serial.print(gy); Serial.print("\t");
+     
+      //Serial.println(":::");
       /*
       Serial.print("areal\t");
       Serial.print(aaReal.x);
@@ -197,7 +215,7 @@ float accvalue(){
       Serial.print("\t");
       Serial.println(aaReal.z);
       */
-      return abs(aaReal.x)+abs(aaReal.y);
+      return abs(gx)+abs(gy);
 }
 
 
@@ -296,24 +314,25 @@ void loop() {
         if (!softsleep){
           sendOSCMessage("/coixi", yaw, pitch, roll,float(awake));
         } else {
-          //Serial.print("acceleration");
-          //Serial.println(acceleration);
+          //during softsleep
+          Serial.print("acceleration:: ");
+          Serial.println(acceleration);
           if (acceleration>300){
             softsleep=false;
           }
         }
 
       } else {
-        //sleeping
+        //deep sleeping
          
-          connectToWiFi();
-          awake=true;
-          loopspeed=originalloopspeed;
-          Serial.println("WAKE UP!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-          //calibratesensor();
-          
-          //recalibrate sensor
-          //Serial.println("reca
+        connectToWiFi();
+        awake=true;
+        loopspeed=originalloopspeed;
+        Serial.println("WAKE UP!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+        //calibratesensor();
+        
+        //recalibrate sensor
+        //Serial.println("reca
         Serial.print("acceleration: ");
         Serial.println(acceleration);
         if (acceleration>300){
