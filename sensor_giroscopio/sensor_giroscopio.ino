@@ -20,7 +20,7 @@ MPU6050 mpu;
 bool awake=true;
 bool softsleep=false;
 float lastypr[3]={0.0,0.0,0.0};
-float deltathreshold=100;
+float deltathreshold=150;
 float acomulateddelta=deltathreshold;
 float deltadiscountrate=2;
 float delta=0.0;
@@ -95,6 +95,7 @@ void connectToWiFi() {
     Serial.print("Connecting to ");
     Serial.println(ssid);
     WiFi.begin(ssid, password);
+    //WiFi.begin(ssid, NULL);
 
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
@@ -154,14 +155,17 @@ void setup() {
     //calibratesensor();
      devStatus = mpu.dmpInitialize();
 
-    mpu.setXGyroOffset(11);
-    mpu.setYGyroOffset(-51);
-    mpu.setZGyroOffset(-19);
-    mpu.setZAccelOffset(2048);
+   
+    mpu.setXGyroOffset(11);//11
+    mpu.setYGyroOffset(-51);//-51 // Este controla el norte, ajustar en la miro
+    mpu.setZGyroOffset(-19);//-19
+    mpu.setZAccelOffset(2048);//2048
+   
+   
 
     if (devStatus == 0) {
-        mpu.CalibrateAccel(6);
-        mpu.CalibrateGyro(6);
+        //mpu.CalibrateAccel(6);
+        //mpu.CalibrateGyro(6);
         mpu.setDMPEnabled(true);
         attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), dmpDataReady, RISING);
         mpuIntStatus = mpu.getIntStatus();
@@ -284,9 +288,12 @@ void loop() {
         mpu.dmpGetGravity(&gravity, &q);
         mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
 
-        yaw = (ypr[0] * 180 / M_PI)-yaw_adjusted;
-        pitch = (ypr[1] * 180 / M_PI)-pitch_adjusted;
-        roll = (ypr[2] * 180 / M_PI)-roll_adjusted;
+        //yaw = (ypr[0] * 180 / M_PI)-yaw_adjusted;
+        //pitch = (ypr[1] * 180 / M_PI)-pitch_adjusted;
+        //roll = (ypr[2] * 180 / M_PI)-roll_adjusted;
+        yaw = (ypr[0] * 180 / M_PI)*-1;
+        pitch = (ypr[1]  *180 / M_PI)*-1; //avanzar
+        roll = (ypr[2] * 180 / M_PI)*-1;
         if (softsleep==false){
           //delta difference
           delta=( abs(yaw-lastypr[0]) + abs(pitch-lastypr[1]) + abs(roll-lastypr[2]) );
@@ -315,8 +322,8 @@ void loop() {
           sendOSCMessage("/coixi", yaw, pitch, roll,float(awake));
         } else {
           //during softsleep
-          Serial.print("acceleration:: ");
-          Serial.println(acceleration);
+          //Serial.print("acceleration:: ");
+          //Serial.println(acceleration);
           if (acceleration>300){
             softsleep=false;
           }
