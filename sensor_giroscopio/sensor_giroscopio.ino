@@ -17,6 +17,11 @@ MPU6050 mpu;
 #define INTERRUPT_PIN 2
 #define LED_PIN 13
 
+bool upsidedown=false;
+const int pitcharraylen=10;
+float pitch_readings[pitcharraylen];
+int pitch_index = 0;  
+
 bool awake=true;
 bool softsleep=false;
 float lastypr[3]={0.0,0.0,0.0};
@@ -24,6 +29,8 @@ float deltathreshold=150;
 float acomulateddelta=deltathreshold;
 float deltadiscountrate=2;
 float delta=0.0;
+float invertedpitch=0.0;
+float invertedroll=0.0;
 
 //loop speed
 int loopspeed=50;
@@ -194,34 +201,17 @@ void sendOSCMessage(char* oscAddress,float yaw, float pitch, float roll,float st
 
 float accvalue(){
        //accelerometer readings
-       //computed ones
-      
-      /*
-      mpu.dmpGetQuaternion(&q, fifoBuffer);
-      mpu.dmpGetAccel(&aa, fifoBuffer);
-      mpu.dmpGetGravity(&gravity, &q);
-      mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
-      */
-      //simpler raw ones
-      //mpu.getAcceleration(&ax, &ay, &az);
       mpu.getRotation(&gx, &gy, &gz);
-
-      //Serial.print("gyroraw:\t");
-      //Serial.print(gx); Serial.print("\t");
-      //Serial.print(gy); Serial.print("\t");
-     
-      //Serial.println(":::");
-      /*
-      Serial.print("areal\t");
-      Serial.print(aaReal.x);
-      Serial.print("\t");
-      Serial.print(aaReal.y);
-      Serial.print("\t");
-      Serial.println(aaReal.z);
-      */
       return abs(gx)+abs(gy);
 }
 
+float calculateMean(float array[], int length) {
+  float sum = 0.0;
+  for (int i = 0; i < length; i++) {
+    sum += array[i];
+  }
+  return sum / length;
+}
 
 
 int loopCounter = 0; // Counter to track the number of loops
@@ -243,11 +233,6 @@ void loop() {
 
         // Reset the counter
         loopCounter = 0;
-
-       
-        //check for acomulated acceleration
-        //Serial.print("acomulated acceleration: ");
-        //Serial.println(acomulatedacceleration);
 
         //hard sleep mode
         if (acomulatedacceleration<53000.0){
@@ -292,8 +277,37 @@ void loop() {
         //pitch = (ypr[1] * 180 / M_PI)-pitch_adjusted;
         //roll = (ypr[2] * 180 / M_PI)-roll_adjusted;
         yaw = (ypr[0] * 180 / M_PI)*-1;
-        pitch = (ypr[1]  *180 / M_PI)*-1; //avanzar
+        pitch = (ypr[1]  *180 / M_PI)*-1; //avanzar (inclinar adelante o atrás)
         roll = (ypr[2] * 180 / M_PI)*-1;
+
+        // Save the reading into the array XXXX
+        pitch_readings[pitch_index] = pitch;
+        pitch_index++;
+
+        // If we have reached the end of the array, reset the index
+        if (pitch_index >= pitcharraylen) {
+          pitch_index = 0;
+          //calculate the average
+          float meanpitch=calculateMean(pitch_readings, pitcharraylen);
+          //Serial.print("::::::::::::::: MEAN PITCH: ");
+          //Serial.print(meanpitch);
+          //Serial.print("  upside? ");
+          //Serial.print(upsidedown);
+          //Serial.print("  pitch ");
+          //Serial.print(pitch);
+          //Serial.print("  invertedpitch ");
+          //Serial.println(invertedpitch);
+          //Serial.print("  roll ");
+          //Serial.print(roll);
+          //Serial.print("  invertedroll ");
+          //Serial.println(invertedroll);
+          if (meanpitch<110.0 && meanpitch > -110){
+            upsidedown=false;
+          } else {
+            upsidedown=true;
+          }
+        }
+
         if (softsleep==false){
           //delta difference
           delta=( abs(yaw-lastypr[0]) + abs(pitch-lastypr[1]) + abs(roll-lastypr[2]) );
@@ -319,7 +333,29 @@ void loop() {
           lastypr[2]=roll;
         }
         if (!softsleep){
-          sendOSCMessage("/coixi", yaw, pitch, roll,float(awake));
+          if (upsidedown){
+            //invertedroll=-roll;
+            if (pitch<0){
+              //forward, should be negative
+              invertedpitch=(pitch*-1)-180;
+            //  invertedpitch=pitch-180;
+            } else {
+              invertedpitch=(pitch*-1)+180;
+            }
+            if (roll<0){
+              //tilt right, should be positive
+               invertedroll=(-roll*-1)+180;
+            }else{
+              //tilt left
+               invertedroll=(-roll*-1)-180;//roll*-1)-180;
+            }
+            //invertedpitch=-pitch;//180-(pitch*-1);
+            //if (invertedpitch)
+            sendOSCMessage("/coixi", yaw, invertedpitch, invertedroll,float(awake));
+          } else {
+            sendOSCMessage("/coixi", yaw, pitch, roll,float(awake));
+          }
+          
         } else {
           //during softsleep
           //Serial.print("acceleration:: ");
