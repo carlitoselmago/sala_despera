@@ -280,31 +280,33 @@ void loop() {
         pitch = (ypr[1]  *180 / M_PI)*-1; //avanzar (inclinar adelante o atrás)
         roll = (ypr[2] * 180 / M_PI)*-1;
 
-        // Save the reading into the array XXXX
-        pitch_readings[pitch_index] = pitch;
-        pitch_index++;
+        if (!softsleep){
+          // Save the reading into the array XXXX
+          pitch_readings[pitch_index] = pitch;
+          pitch_index++;
 
-        // If we have reached the end of the array, reset the index
-        if (pitch_index >= pitcharraylen) {
-          pitch_index = 0;
-          //calculate the average
-          float meanpitch=calculateMean(pitch_readings, pitcharraylen);
-          //Serial.print("::::::::::::::: MEAN PITCH: ");
-          //Serial.print(meanpitch);
-          //Serial.print("  upside? ");
-          //Serial.print(upsidedown);
-          //Serial.print("  pitch ");
-          //Serial.print(pitch);
-          //Serial.print("  invertedpitch ");
-          //Serial.println(invertedpitch);
-          //Serial.print("  roll ");
-          //Serial.print(roll);
-          //Serial.print("  invertedroll ");
-          //Serial.println(invertedroll);
-          if (meanpitch<110.0 && meanpitch > -110){
-            upsidedown=false;
-          } else {
-            upsidedown=true;
+          // If we have reached the end of the array, reset the index
+          if (pitch_index >= pitcharraylen) {
+            pitch_index = 0;
+            //calculate the average
+            float meanpitch=calculateMean(pitch_readings, pitcharraylen);
+            //Serial.print("::::::::::::::: MEAN PITCH: ");
+            //Serial.print(meanpitch);
+            //Serial.print("  upside? ");
+            //Serial.print(upsidedown);
+            //Serial.print("  pitch ");
+            //Serial.print(pitch);
+            //Serial.print("  invertedpitch ");
+            //Serial.println(invertedpitch);
+            //Serial.print("  roll ");
+            //Serial.print(roll);
+            //Serial.print("  invertedroll ");
+            //Serial.println(invertedroll);
+            if (meanpitch<110.0 && meanpitch > -110){
+              upsidedown=false;
+            } else {
+              upsidedown=true;
+            }
           }
         }
 
