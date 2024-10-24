@@ -25,9 +25,15 @@ int pitch_index = 0;
 bool awake=true;
 bool softsleep=false;
 float lastypr[3]={0.0,0.0,0.0};
+
 float deltathreshold=150;
 float acomulateddelta=deltathreshold;
 float deltadiscountrate=2;
+
+float shakethreshold=200000;
+float acomulatedshake=0;
+float shakediscountrate=2000;
+
 float delta=0.0;
 float invertedpitch=0.0;
 float invertedroll=0.0;
@@ -173,8 +179,8 @@ void setup() {
    
 
     if (devStatus == 0) {
-        //mpu.CalibrateAccel(6);
-        //mpu.CalibrateGyro(6);
+        mpu.CalibrateAccel(6);
+        mpu.CalibrateGyro(6);
         mpu.setDMPEnabled(true);
         attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), dmpDataReady, RISING);
         mpuIntStatus = mpu.getIntStatus();
@@ -255,6 +261,8 @@ void loop() {
           WiFi.disconnect();
         }
 
+        //Serial.print("acomulatedacceleration ");
+        //Serial.println(acomulatedacceleration);
     
         acomulatedacceleration=0.0;
       }
@@ -320,20 +328,35 @@ void loop() {
 
         if (softsleep==false){
           //delta difference
+          acceleration=accvalue();
+          
           delta=( abs(yaw-lastypr[0]) + abs(pitch-lastypr[1]) + abs(roll-lastypr[2]) );
           //Serial.print("delta: ");
           //Serial.println(delta);
           acomulateddelta+=delta;
           acomulateddelta-=deltadiscountrate;
+
+          acomulatedshake+=acceleration;
+          acomulatedshake-=shakediscountrate;
+          if (acomulatedshake<0){
+            acomulatedshake=0;
+          }
+          //Serial.print("acomulatedshake ");
+          //Serial.println(acomulatedshake);
           if (acomulateddelta>deltathreshold){acomulateddelta=deltathreshold;}
+
+          
+          if (acomulatedshake>shakethreshold){
+            //re calibrate
+            sendOSCMessage("/recalibrate",0,0,0,0);
+            ESP.restart();
+          }
+         
           //Serial.print("acomulateddelta: ");
           //Serial.println(acomulateddelta);
           if (acomulateddelta<0){
             Serial.println("SOFT SLEEP ACTIVATED:::");
             softsleep=true;
-            yaw_adjusted=yaw;
-            pitch_adjusted=pitch;
-            roll_adjusted=roll;
             sendOSCMessage("/coixi", 0.0,0.0, 0.0,2.0);
             acomulateddelta=deltathreshold;
           }
@@ -343,52 +366,10 @@ void loop() {
           lastypr[2]=roll;
         }
         if (!softsleep){
-          if (upsidedown){
-            //invertedroll=-roll;
-            if (pitch<0){
-              //forward, should be negative
-              invertedpitch=(pitch*-1)-180;
-            //  invertedpitch=pitch-180;
-            } else {
-              invertedpitch=(pitch*-1)+180;
-            }
-            if (roll<0){
-              //tilt right, should be positive
-               invertedroll=(-roll*-1)+180;
-            }else{
-              //tilt left
-               invertedroll=(-roll*-1)-180;//roll*-1)-180;
-            }
-            //invertedpitch=-pitch;//180-(pitch*-1);
-            //if (invertedpitch)
-            sendOSCMessage("/coixi", yaw, invertedpitch, invertedroll,float(awake));
-          } else {
-              roll=roll*0.5;
-              pitch=pitch-(90+5);
-              pitch_p=pitch;
-              //sendOSCMessage("/coixi", yaw, pitch-(90+14), (roll*0.2),float(awake));
-              if (pitch_p<0){
-                //forward
-                pitch_p=pitch_p+30;
-                if (pitch_p>0){
-                  pitch_p=0;
-                }
-              } else {
-                //backward
-                if (roll>0){
-                  roll-=abs(pitch);
-                } else{
-                  roll+=abs(pitch);
-                }
-              }
+          //awake
+          //sendOSCMessage("/coixi", 0, 0,roll,float(awake));
+          sendOSCMessage("/coixi", 0,pitch,roll,float(awake));
 
-               Serial.print("  pitch ");
-              Serial.println(pitch);
-              //sendOSCMessage("/coixi", 0, 0,roll,float(awake));
-              sendOSCMessage("/coixi", 0,0,roll,float(awake));
-            
-          }
-          
         } else {
           //during softsleep
           //Serial.print("acceleration:: ");
