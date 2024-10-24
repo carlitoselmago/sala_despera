@@ -58,6 +58,8 @@ float yaw;
 float pitch;
 float roll;
 
+float pitch_p;
+
 bool blinkState = false;
 
 //raw accelerometer / gyro vars
@@ -306,11 +308,13 @@ void loop() {
             //Serial.print(roll);
             //Serial.print("  invertedroll ");
             //Serial.println(invertedroll);
+            /*
             if (meanpitch<110.0 && meanpitch > -110){
               upsidedown=false;
             } else {
               upsidedown=true;
             }
+            */
           }
         }
 
@@ -359,7 +363,30 @@ void loop() {
             //if (invertedpitch)
             sendOSCMessage("/coixi", yaw, invertedpitch, invertedroll,float(awake));
           } else {
-            sendOSCMessage("/coixi", yaw, pitch, roll,float(awake));
+              roll=roll*0.5;
+              pitch=pitch-(90+5);
+              pitch_p=pitch;
+              //sendOSCMessage("/coixi", yaw, pitch-(90+14), (roll*0.2),float(awake));
+              if (pitch_p<0){
+                //forward
+                pitch_p=pitch_p+30;
+                if (pitch_p>0){
+                  pitch_p=0;
+                }
+              } else {
+                //backward
+                if (roll>0){
+                  roll-=abs(pitch);
+                } else{
+                  roll+=abs(pitch);
+                }
+              }
+
+               Serial.print("  pitch ");
+              Serial.println(pitch);
+              //sendOSCMessage("/coixi", 0, 0,roll,float(awake));
+              sendOSCMessage("/coixi", 0,0,roll,float(awake));
+            
           }
           
         } else {
@@ -379,8 +406,8 @@ void loop() {
        
         if (acceleration>300){
           //wake up!librating sensor:::::");
-           WiFi.reconnect();
-          //connectToWiFi();
+          // WiFi.reconnect();
+          connectToWiFi();
           awake=true;
           loopspeed=originalloopspeed;
           Serial.println("WAKE UP!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
