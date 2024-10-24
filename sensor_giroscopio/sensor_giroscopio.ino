@@ -222,6 +222,14 @@ float accvalue(){
       return abs(gx)+abs(gy);
 }
 
+void sendtempandbattery(){
+ //send battery level
+        batteryFraction=  maxlipo.cellPercent();
+        cpu_celsius = temperatureRead();
+
+        //send temperature and battery charge
+        sendOSCMessage("/control",cpu_celsius,batteryFraction,0,float(awake));
+}
 
 
 int loopCounter = 0; // Counter to track the number of loops
@@ -234,12 +242,7 @@ void loop() {
     if (awake){
       if (loopCounter >= loopInterval) {
         
-        //send battery level
-        batteryFraction=  maxlipo.cellPercent();
-        cpu_celsius = temperatureRead();
-
-        //send temperature and battery charge
-        sendOSCMessage("/control",cpu_celsius,batteryFraction,0,float(awake));
+        sendtempandbattery();
 
         // Reset the counter
         loopCounter = 0;
@@ -325,28 +328,32 @@ void loop() {
           //Serial.print("acceleration:: ");
           //Serial.println(acceleration);
           if (acceleration>300){
+            //WAKE UP FroM SOFT SLEEP
             softsleep=false;
+            sendtempandbattery();
+
           }
         }
 
       } else {
         //deep sleeping
-         
-        connectToWiFi();
-        awake=true;
-        loopspeed=originalloopspeed;
-        Serial.println("WAKE UP!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-        //calibratesensor();
-        
-        //recalibrate sensor
-        //Serial.println("reca
-        Serial.print("acceleration: ");
-        Serial.println(acceleration);
+       
         if (acceleration>300){
           //wake up!librating sensor:::::");
+           WiFi.reconnect();
+          //connectToWiFi();
+          awake=true;
+          loopspeed=originalloopspeed;
+          Serial.println("WAKE UP!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+          //calibratesensor();
+          sendtempandbattery();
 
+          //recalibrate sensor
+          //Serial.println("reca
+          Serial.print("acceleration: ");
+          Serial.println(acceleration);
     
-      }
+        }
       }
   }
      delay(loopspeed);
