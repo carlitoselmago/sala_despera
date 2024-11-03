@@ -28,7 +28,7 @@ float lastypr[3]={0.0,0.0,0.0};
 
 float deltathreshold=150;
 float acomulateddelta=deltathreshold;
-float deltadiscountrate=2;
+float deltadiscountrate=1.7;
 
 float shakethreshold=200000;
 float acomulatedshake=0;
@@ -256,7 +256,7 @@ void loop() {
           pitch_adjusted=pitch;
           roll_adjusted=roll;
         
-          Serial.println("SLEEP MODE ACTIVATED:::::::::::::::::::::::::::::::::::::");
+          Serial.println("HARD SLEEP MODE ACTIVATED:::::::::::::::::::::::::::::::::::::");
           sendOSCMessage("/coixi", 0.0,0.0, 0.0,0.0);
           WiFi.disconnect();
         }
@@ -304,25 +304,7 @@ void loop() {
             pitch_index = 0;
             //calculate the average
             float meanpitch=calculateMean(pitch_readings, pitcharraylen);
-            //Serial.print("::::::::::::::: MEAN PITCH: ");
-            //Serial.print(meanpitch);
-            //Serial.print("  upside? ");
-            //Serial.print(upsidedown);
-            //Serial.print("  pitch ");
-            //Serial.print(pitch);
-            //Serial.print("  invertedpitch ");
-            //Serial.println(invertedpitch);
-            //Serial.print("  roll ");
-            //Serial.print(roll);
-            //Serial.print("  invertedroll ");
-            //Serial.println(invertedroll);
-            /*
-            if (meanpitch<110.0 && meanpitch > -110){
-              upsidedown=false;
-            } else {
-              upsidedown=true;
-            }
-            */
+           
           }
         }
 
@@ -348,6 +330,8 @@ void loop() {
           
           if (acomulatedshake>shakethreshold){
             //re calibrate
+            
+            sendOSCMessage("/coixi", 0.0,0.0, 0.0,0.0);
             sendOSCMessage("/recalibrate",0,0,0,0);
             ESP.restart();
           }
@@ -368,7 +352,10 @@ void loop() {
         if (!softsleep){
           //awake
           //sendOSCMessage("/coixi", 0, 0,roll,float(awake));
-          sendOSCMessage("/coixi", 0,pitch,roll,float(awake));
+          if (pitch<0){
+            pitch*2;
+          }
+          sendOSCMessage("/coixi", yaw,pitch,roll,float(awake));
 
         } else {
           //during softsleep
